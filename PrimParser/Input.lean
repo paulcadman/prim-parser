@@ -109,6 +109,47 @@ def ofArray {τ : Type} (a : Array τ) : Input (Array τ) a.size where
   buf := a
   valid := by simp
 
+section
+
+variable [Reader σ Char]
+
+/-- Parse a sequence of ASCII digits as a decimal value. -/
+def foldDigits {n : Nat} (inp : Input σ n) : Nat × Nat :=
+  go inp 0
+where
+  go {m : Nat} (inp : Input σ m) (acc : Nat) : Nat × Nat :=
+    match h : inp.nextTok (τ := Char) with
+    | some c =>
+      if c.isDigit then
+        have := inp.width_le h
+        have := Reader.width_pos (σ := σ) c
+        go (inp.advance c) (acc * 10 + (c.toNat - '0'.toNat))
+      else (acc, m)
+    | none => (acc, m)
+
+theorem foldDigits_go_accept
+  {acc : Nat}
+  {inp : Input σ n}
+  {c : Char}
+  (h : inp.nextTok = some c := by assumption)
+  (hd : c.isDigit = true := by assumption)
+  : foldDigits.go inp acc = foldDigits.go (inp.advance c) (acc * 10 + (c.toNat - '0'.toNat)) := by
+  rw [foldDigits.go]; grind
+
+theorem foldDigits_go_le
+  (inp : Input σ n)
+  (acc : Nat)
+  : (foldDigits.go inp acc).2 <= n := by
+  fun_induction foldDigits.go inp acc <;> grind
+
+theorem foldDigits_lt_iff
+  {inp : Input σ n}
+  : (foldDigits inp).2 < n ↔ ∃ c : Char, inp.nextTok = some c ∧ c.isDigit = true := by
+  rw [foldDigits]
+  fun_cases foldDigits.go inp 0 <;> grind [foldDigits_go_le, Input.sub_width_lt]
+
+end
+
 def ofByteArray (b : ByteArray) : Input ByteArray b.size where
   buf := b
   valid := by simp
@@ -211,39 +252,6 @@ theorem utf8ByteSize_takeWhile_pos_iff (f : Char → Bool) (inp : Input ByteArra
   rw [← skipWhile_lt_iff]
   have := utf8ByteSize_takeWhile f inp
   omega
-
-/-- Parse a sequence of ASCII digits as a decimal value. -/
-def foldDigits {n : Nat} (inp : Input ByteArray n) : Nat × Nat :=
-  go inp 0
-where
-  go {m : Nat} (inp : Input ByteArray m) (acc : Nat) : Nat × Nat :=
-    match h : inp.nextTok (τ := Char) with
-    | some c =>
-      if c.isDigit then
-        have : c.utf8Size <= m := by simpa using inp.width_le h
-        have := Char.utf8Size_pos c
-        go (inp.advance c) (acc * 10 + (c.toNat - '0'.toNat))
-      else (acc, m)
-    | none => (acc, m)
-
-theorem foldDigits_go_accept
-  {acc : Nat}
-  (h : inp.nextTok = some c := by assumption)
-  (hd : c.isDigit = true := by assumption)
-  : foldDigits.go inp acc = foldDigits.go (inp.advance c) (acc * 10 + (c.toNat - '0'.toNat)) := by
-  rw [foldDigits.go]; grind
-
-theorem foldDigits_go_le
-  (inp : Input ByteArray n)
-  (acc : Nat)
-  : (foldDigits.go inp acc).2 <= n := by
-  fun_induction foldDigits.go inp acc <;> grind
-
-theorem foldDigits_lt_iff
-  (inp : Input ByteArray n)
-  : (foldDigits inp).2 < n ↔ ∃ c : Char, inp.nextTok = some c ∧ c.isDigit = true := by
-  rw [foldDigits]
-  fun_cases foldDigits.go inp 0 <;> grind [foldDigits_go_le, Input.sub_width_lt]
 
 end Bytes
 

@@ -352,7 +352,7 @@ private theorem nat_run_accept
   : nat.run t
       = success { result := (Input.foldDigits t).1
                   restSize := (Input.foldDigits t).2
-                  witness := (Input.foldDigits_lt_iff t).mpr ⟨c, h, hd⟩ } := by
+                  witness := Input.foldDigits_lt_iff.mpr ⟨c, h, hd⟩ } := by
   have hgo := many_go_digit (t.advance c) (c.toNat - '0'.toNat)
   simp only [nat, gbind_run]
   rw [Outcome.handle_success (digit_run_accept h hd)]
