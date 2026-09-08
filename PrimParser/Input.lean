@@ -113,19 +113,26 @@ section
 
 variable [Reader σ Char]
 
+/-- The result of `foldDigits`. -/
+structure DigitFold where
+  /-- The decimal value of the parsed digits. -/
+  value : Nat
+  /-- The remaining input size. -/
+  restSize : Nat
+
 /-- Parse a sequence of ASCII digits as a decimal value. -/
-def foldDigits {n : Nat} (inp : Input σ n) : Nat × Nat :=
+def foldDigits {n : Nat} (inp : Input σ n) : DigitFold :=
   go inp 0
 where
-  go {m : Nat} (inp : Input σ m) (acc : Nat) : Nat × Nat :=
+  go {m : Nat} (inp : Input σ m) (acc : Nat) : DigitFold :=
     match h : inp.nextTok (τ := Char) with
     | some c =>
       if c.isDigit then
         have := inp.width_le h
         have := Reader.width_pos (σ := σ) c
         go (inp.advance c) (acc * 10 + (c.toNat - '0'.toNat))
-      else (acc, m)
-    | none => (acc, m)
+      else { value := acc, restSize := m }
+    | none => { value := acc, restSize := m }
 
 theorem foldDigits_go_accept
   {acc : Nat}
@@ -139,12 +146,12 @@ theorem foldDigits_go_accept
 theorem foldDigits_go_le
   (inp : Input σ n)
   (acc : Nat)
-  : (foldDigits.go inp acc).2 <= n := by
+  : (foldDigits.go inp acc).restSize <= n := by
   fun_induction foldDigits.go inp acc <;> grind
 
 theorem foldDigits_lt_iff
   {inp : Input σ n}
-  : (foldDigits inp).2 < n ↔ ∃ c : Char, inp.nextTok = some c ∧ c.isDigit = true := by
+  : (foldDigits inp).restSize < n ↔ ∃ c : Char, inp.nextTok = some c ∧ c.isDigit = true := by
   rw [foldDigits]
   fun_cases foldDigits.go inp 0 <;> grind [foldDigits_go_le, Input.sub_width_lt]
 

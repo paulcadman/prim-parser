@@ -337,7 +337,8 @@ def nat : Utf8Parser Error conditional Nat := gdo
 private theorem many_go_digit
   (t : Input ByteArray n)
   (acc : Nat)
-  : ((many.go digit t).result.foldl (fun acc d => acc * 10 + d) acc, (many.go digit t).restSize)
+  : let r := many.go digit t
+    { value := r.result.foldl (fun acc d => acc * 10 + d) acc, restSize := r.restSize }
       = Input.foldDigits.go t acc := by
   fun_induction Input.foldDigits.go t acc <;> rw [many.go]
   case case1 => rw [digit_run_accept]; grind
@@ -349,9 +350,10 @@ private theorem nat_run_accept
   {t : Input ByteArray n}
   (h : t.nextTok = some c)
   (hd : c.isDigit = true)
-  : nat.run t
-      = success { result := (Input.foldDigits t).1
-                  restSize := (Input.foldDigits t).2
+  : let r := Input.foldDigits t
+    nat.run t
+      = success { result := r.value
+                  restSize := r.restSize
                   witness := Input.foldDigits_lt_iff.mpr ⟨c, h, hd⟩ } := by
   have hgo := many_go_digit (t.advance c) (c.toNat - '0'.toNat)
   simp only [nat, gbind_run]
@@ -371,9 +373,9 @@ private theorem nat_run_failure
 private def natImpl : Utf8Parser Error conditional Nat where
   run {n} t :=
     let r := t.foldDigits
-    if h : r.2 < n then
-      success { result := r.1
-                restSize := r.2
+    if h : r.restSize < n then
+      success { result := r.value
+                restSize := r.restSize
                 witness := h }
     else
       match t.nextTok (τ := Char) with
